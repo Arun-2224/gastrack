@@ -1,0 +1,17 @@
+{
+  "name": "gastrack-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GasTrack - Enterprise LPG Cylinder & Supply Chain Management System",
+  "scripts": {
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "seed": "cd backend && npm run seed",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "start": "cd backend && npm run start",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  }
+}
