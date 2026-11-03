@@ -31,10 +31,12 @@ export const CreatePaymentModal: React.FC<CreatePaymentModalProps> = ({ isOpen, 
   const mutation = useMutation({
     mutationFn: (data: any) => paymentApi.create(data),
     onSuccess: (res) => {
-      success('Payment Recorded', `Receipt ${res.payment.paymentId} issued.`);
+      success('Payment Recorded', `Receipt ${res.payment?.paymentId || 'PAY'} issued.`);
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payments-stats'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       onClose();
     },
     onError: (err: any) => {

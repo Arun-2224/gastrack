@@ -556,6 +556,7 @@ export const DEMO_NOTIFICATIONS = [
 const CYLINDERS_STORAGE_KEY = 'gastrack_mock_cylinders';
 const INSPECTIONS_STORAGE_KEY = 'gastrack_mock_inspections';
 const MAINTENANCE_STORAGE_KEY = 'gastrack_mock_maintenance';
+const PAYMENTS_STORAGE_KEY = 'gastrack_mock_payments';
 
 function getLiveCylinders(): typeof DEMO_CYLINDERS {
   if (typeof window !== 'undefined') {
@@ -629,6 +630,30 @@ function saveLiveMaintenance(jobs: typeof DEMO_MAINTENANCE) {
   }
 }
 
+function getLivePayments(): typeof DEMO_PAYMENTS {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(PAYMENTS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to parse stored payments', e);
+    }
+  }
+  return DEMO_PAYMENTS;
+}
+
+function saveLivePayments(payments: typeof DEMO_PAYMENTS) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(PAYMENTS_STORAGE_KEY, JSON.stringify(payments));
+    } catch (e) {
+      console.warn('Failed to persist payments', e);
+    }
+  }
+}
+
 export function handleMockApi(endpoint: string, options: RequestInit = {}): any {
   const method = (options.method || 'GET').toUpperCase();
   const cleanEndpoint = endpoint.split('?')[0];
@@ -676,6 +701,7 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
     const liveCyls = getLiveCylinders();
     const liveJobs = getLiveMaintenance();
     const liveInsps = getLiveInspections();
+    const livePayments = getLivePayments();
 
     const available = liveCyls.filter((c: any) => c.status === 'AVAILABLE' || c.status === 'FILLED').length;
     const inCustomer = liveCyls.filter((c: any) => c.status === 'DELIVERED').length;
@@ -687,6 +713,15 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
     const inspPassed = liveInsps.filter((i: any) => i.result === 'PASSED').length;
     const inspNeedsMaint = liveInsps.filter((i: any) => i.result === 'NEEDS_MAINTENANCE' || i.result === 'FAILED').length;
     const inspCondemned = liveInsps.filter((i: any) => i.result === 'REJECTED').length;
+
+    const totalRealizedRevenue = livePayments
+      .filter((p: any) => p.status === 'COMPLETED')
+      .reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+
+    const totalOutstanding = DEMO_CUSTOMERS.reduce(
+      (sum: number, c: any) => sum + (Number(c.outstandingBalance) || 0),
+      0
+    );
 
     return {
       success: true,
@@ -701,8 +736,8 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
         totalCustomers: DEMO_CUSTOMERS.length,
         deliveriesToday: 24,
         completedToday: 19,
-        totalRevenue: 28450,
-        totalOutstanding: 4120,
+        totalRevenue: totalRealizedRevenue,
+        totalOutstanding: totalOutstanding,
       },
       cylinderDistribution: [
         { name: 'Available', value: available, color: '#10b981' },
@@ -1109,17 +1144,78 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
 
   // 11. Payments
   if (cleanEndpoint === '/payments') {
+    const livePayments = getLivePayments();
+    if (method === 'POST') {
+      const customer = DEMO_CUSTOMERS.find((c: any) => c._id === body.customerId || c.customerId === body.customerId) || DEMO_CUSTOMERS[0];
+      const newPayment = {
+        _id: `pay-${Date.now()}`,
+        paymentId: `PAY-2026-${String(livePayments.length + 101).padStart(3, '0')}`,
+        customer: {
+          _id: customer._id,
+          customerId: customer.customerId,
+          name: customer.name,
+          phone: customer.phone,
+        },
+        amount: Number(body.amount) || 0,
+        paymentMethod: body.paymentMethod || 'CASH',
+        status: 'COMPLETED',
+        transactionReference: body.transactionReference || `TXN-${Date.now().toString().slice(-6)}`,
+        notes: body.notes || '',
+        recordedBy: {
+          _id: DEMO_USERS[0]._id,
+          name: DEMO_USERS[0].name,
+          role: DEMO_USERS[0].role,
+        },
+        paymentDate: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+
+      livePayments.unshift(newPayment as any);
+      saveLivePayments(livePayments);
+
+      return { success: true, payment: newPayment };
+    }
+
+    const urlParams = new URLSearchParams(endpoint.includes('?') ? endpoint.split('?')[1] : '');
+    const methodFilter = urlParams.get('paymentMethod');
+
+    let filtered = livePayments;
+    if (methodFilter && methodFilter !== 'ALL') {
+      filtered = filtered.filter((p: any) => p.paymentMethod === methodFilter);
+    }
+
     return {
       success: true,
-      data: DEMO_PAYMENTS,
-      pagination: { page: 1, limit: 20, total: DEMO_PAYMENTS.length, pages: 1 },
+      data: filtered,
+      pagination: { page: 1, limit: 20, total: filtered.length, pages: 1 },
     };
   }
 
   if (cleanEndpoint === '/payments/stats') {
+    const livePayments = getLivePayments();
+    const methodTotals: Record<string, number> = {};
+    let totalRevenue = 0;
+
+    livePayments
+      .filter((p: any) => p.status === 'COMPLETED')
+      .forEach((p: any) => {
+        const amt = Number(p.amount) || 0;
+        totalRevenue += amt;
+        methodTotals[p.paymentMethod] = (methodTotals[p.paymentMethod] || 0) + amt;
+      });
+
+    const byMethod = Object.entries(methodTotals).map(([method, total]) => ({
+      _id: method,
+      total,
+    }));
+
     return {
       success: true,
-      stats: { totalRevenue: 368, byMethod: [{ _id: 'UPI', total: 320 }, { _id: 'CARD', total: 48 }], recentPayments: DEMO_PAYMENTS },
+      stats: {
+        totalRevenue,
+        byMethod,
+        recentPayments: livePayments.slice(0, 5),
+      },
     };
   }
 
