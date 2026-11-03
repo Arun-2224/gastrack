@@ -3,7 +3,9 @@ import { handleMockApi } from './mockData';
 const RAW_URL = (import.meta.env.VITE_API_URL as string | undefined) || '';
 const isStaticHost =
   typeof window !== 'undefined' &&
-  (window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:');
+  (window.location.hostname.endsWith('github.io') ||
+    window.location.protocol === 'file:' ||
+    window.location.hostname.endsWith('vercel.app'));
 
 const shouldUseMock = !RAW_URL && isStaticHost;
 
@@ -44,8 +46,19 @@ export async function apiRequest<T = any>(
       headers,
     });
 
-    if ((response.status === 405 || response.status === 404 || response.status >= 500) && !RAW_URL) {
-      console.warn(`[GasTrack] Received ${response.status} from backend. Serving from interactive demo data.`);
+    const contentType = response.headers.get('content-type') || '';
+    const isHtmlResponse = contentType.includes('text/html');
+
+    if (
+      (response.status === 405 ||
+        response.status === 404 ||
+        response.status >= 500 ||
+        isHtmlResponse) &&
+      !RAW_URL
+    ) {
+      console.warn(
+        `[GasTrack] Received ${response.status} (${contentType || 'non-json'}) from backend. Serving from interactive demo data.`
+      );
       return handleMockApi(endpoint, options) as T;
     }
 
