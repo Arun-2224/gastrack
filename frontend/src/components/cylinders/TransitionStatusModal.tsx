@@ -40,6 +40,7 @@ export const TransitionStatusModal: React.FC<TransitionStatusModalProps> = ({
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
       queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       onClose();
     },
     onError: (err: any) => {

@@ -43,10 +43,15 @@ export const CreateMaintenanceModal: React.FC<CreateMaintenanceModalProps> = ({
   const mutation = useMutation({
     mutationFn: (data: any) => maintenanceApi.create(data),
     onSuccess: (res) => {
-      success('Ticket Opened', `Maintenance job ${res.job.maintenanceId} created.`);
+      success('Ticket Opened', `Maintenance job ${res.job?.maintenanceId || 'Work order'} created.`);
       queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      queryClient.invalidateQueries({ queryKey: ['inspection-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       onClose();
     },
     onError: (err: any) => {

@@ -37,6 +37,7 @@ export const AddCylinderModal: React.FC<AddCylinderModalProps> = ({ isOpen, onCl
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
       queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       onClose();
       setSerialNumber('');
     },

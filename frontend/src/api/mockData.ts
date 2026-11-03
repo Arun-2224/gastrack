@@ -389,10 +389,71 @@ export const DEMO_MAINTENANCE = [
       role: 'MAINTENANCE_STAFF',
     },
     startDate: new Date(Date.now() - 2 * 86400000).toISOString(),
+    completionDate: '' as string | undefined,
     cost: 38,
     status: 'IN_PROGRESS',
     notes: 'Awaiting secondary hydrostatic certification.',
     createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+  },
+];
+
+export const DEMO_INSPECTIONS = [
+  {
+    _id: 'insp-1',
+    inspectionId: 'INSP-2026-001',
+    cylinder: DEMO_CYLINDERS[0],
+    inspector: DEMO_USERS[4],
+    inspectionDate: new Date(Date.now() - 1 * 86400000).toISOString(),
+    inspectionType: 'ROUTINE',
+    leakTest: 'PASSED',
+    valveCondition: 'GOOD',
+    bodyCondition: 'GOOD',
+    corrosion: 'NONE',
+    pressureTest: 'PASSED',
+    safetySeal: 'INTACT',
+    overallCondition: 'GOOD',
+    result: 'PASSED',
+    remarks: 'Standard certification passed with zero leak rate.',
+    nextInspectionDate: new Date(Date.now() + 180 * 86400000).toISOString(),
+    createdAt: new Date(Date.now() - 1 * 86400000).toISOString(),
+  },
+  {
+    _id: 'insp-2',
+    inspectionId: 'INSP-2026-002',
+    cylinder: DEMO_CYLINDERS[1],
+    inspector: DEMO_USERS[4],
+    inspectionDate: new Date(Date.now() - 3 * 86400000).toISOString(),
+    inspectionType: 'PERIODIC_STATUTORY',
+    leakTest: 'PASSED',
+    valveCondition: 'GOOD',
+    bodyCondition: 'GOOD',
+    corrosion: 'SURFACE',
+    pressureTest: 'PASSED',
+    safetySeal: 'INTACT',
+    overallCondition: 'GOOD',
+    result: 'PASSED',
+    remarks: 'Hydrostatic pressure passed within safety margin.',
+    nextInspectionDate: new Date(Date.now() + 365 * 86400000).toISOString(),
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+  },
+  {
+    _id: 'insp-3',
+    inspectionId: 'INSP-2026-003',
+    cylinder: DEMO_CYLINDERS[4],
+    inspector: DEMO_USERS[4],
+    inspectionDate: new Date(Date.now() - 5 * 86400000).toISOString(),
+    inspectionType: 'INCIDENT_CHECK',
+    leakTest: 'FAILED',
+    valveCondition: 'DEFECTIVE',
+    bodyCondition: 'DENTED',
+    corrosion: 'NONE',
+    pressureTest: 'FAILED',
+    safetySeal: 'BROKEN',
+    overallCondition: 'POOR',
+    result: 'NEEDS_MAINTENANCE',
+    remarks: 'Collar seal micro-leakage detected. Routed to maintenance.',
+    nextInspectionDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+    createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
   },
 ];
 
@@ -493,6 +554,8 @@ export const DEMO_NOTIFICATIONS = [
 
 // Handles in-browser API mock responses with localStorage persistence
 const CYLINDERS_STORAGE_KEY = 'gastrack_mock_cylinders';
+const INSPECTIONS_STORAGE_KEY = 'gastrack_mock_inspections';
+const MAINTENANCE_STORAGE_KEY = 'gastrack_mock_maintenance';
 
 function getLiveCylinders(): typeof DEMO_CYLINDERS {
   if (typeof window !== 'undefined') {
@@ -514,6 +577,54 @@ function saveLiveCylinders(cylinders: typeof DEMO_CYLINDERS) {
       localStorage.setItem(CYLINDERS_STORAGE_KEY, JSON.stringify(cylinders));
     } catch (e) {
       console.warn('Failed to persist cylinders', e);
+    }
+  }
+}
+
+function getLiveInspections(): typeof DEMO_INSPECTIONS {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(INSPECTIONS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to parse stored inspections', e);
+    }
+  }
+  return DEMO_INSPECTIONS;
+}
+
+function saveLiveInspections(inspections: typeof DEMO_INSPECTIONS) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(INSPECTIONS_STORAGE_KEY, JSON.stringify(inspections));
+    } catch (e) {
+      console.warn('Failed to persist inspections', e);
+    }
+  }
+}
+
+function getLiveMaintenance(): typeof DEMO_MAINTENANCE {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(MAINTENANCE_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to parse stored maintenance', e);
+    }
+  }
+  return DEMO_MAINTENANCE;
+}
+
+function saveLiveMaintenance(jobs: typeof DEMO_MAINTENANCE) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(MAINTENANCE_STORAGE_KEY, JSON.stringify(jobs));
+    } catch (e) {
+      console.warn('Failed to persist maintenance', e);
     }
   }
 }
@@ -562,28 +673,43 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
 
   // 4. Dashboard Summary
   if (cleanEndpoint === '/dashboard/summary') {
+    const liveCyls = getLiveCylinders();
+    const liveJobs = getLiveMaintenance();
+    const liveInsps = getLiveInspections();
+
+    const available = liveCyls.filter((c: any) => c.status === 'AVAILABLE' || c.status === 'FILLED').length;
+    const inCustomer = liveCyls.filter((c: any) => c.status === 'DELIVERED').length;
+    const inRefill = liveCyls.filter((c: any) => c.status === 'IN_REFILL').length;
+    const inInspection = liveCyls.filter((c: any) => c.status === 'INSPECTION').length;
+    const inMaint = liveCyls.filter((c: any) => c.status === 'MAINTENANCE').length;
+    const damagedLost = liveCyls.filter((c: any) => c.status === 'DAMAGED' || c.status === 'LOST' || c.status === 'RETIRED').length;
+
+    const inspPassed = liveInsps.filter((i: any) => i.result === 'PASSED').length;
+    const inspNeedsMaint = liveInsps.filter((i: any) => i.result === 'NEEDS_MAINTENANCE' || i.result === 'FAILED').length;
+    const inspCondemned = liveInsps.filter((i: any) => i.result === 'REJECTED').length;
+
     return {
       success: true,
       summary: {
-        totalCylinders: 420,
-        availableCylinders: 185,
-        inCustomerHands: 164,
-        inRefill: 36,
-        inInspection: 18,
-        inMaintenance: 12,
-        damagedOrLost: 5,
-        totalCustomers: 88,
+        totalCylinders: liveCyls.length,
+        availableCylinders: available,
+        inCustomerHands: inCustomer,
+        inRefill: inRefill,
+        inInspection: inInspection,
+        inMaintenance: inMaint,
+        damagedOrLost: damagedLost,
+        totalCustomers: DEMO_CUSTOMERS.length,
         deliveriesToday: 24,
         completedToday: 19,
         totalRevenue: 28450,
         totalOutstanding: 4120,
       },
       cylinderDistribution: [
-        { name: 'Available', value: 185, color: '#10b981' },
-        { name: 'With Customers', value: 164, color: '#3b82f6' },
-        { name: 'In Refill', value: 36, color: '#f59e0b' },
-        { name: 'In Inspection', value: 18, color: '#8b5cf6' },
-        { name: 'In Maintenance', value: 12, color: '#ef4444' },
+        { name: 'Available', value: available, color: '#10b981' },
+        { name: 'With Customers', value: inCustomer, color: '#3b82f6' },
+        { name: 'In Refill', value: inRefill, color: '#f59e0b' },
+        { name: 'In Inspection', value: inInspection, color: '#8b5cf6' },
+        { name: 'In Maintenance', value: inMaint, color: '#ef4444' },
       ],
       deliveryTrends: [
         { _id: 'Mon', totalScheduled: 18, delivered: 18 },
@@ -601,9 +727,9 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
         { _id: 'Week 4', revenue: 8300 },
       ],
       inspectionSummary: {
-        PASSED: 84,
-        REQUIRES_MAINTENANCE: 12,
-        CONDEMNED: 2,
+        PASSED: inspPassed,
+        REQUIRES_MAINTENANCE: inspNeedsMaint,
+        CONDEMNED: inspCondemned,
       },
       recentDeliveries: DEMO_DELIVERIES,
       recentAlerts: DEMO_NOTIFICATIONS,
@@ -799,40 +925,185 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
 
   // 9. Maintenance
   if (cleanEndpoint === '/maintenance') {
+    const liveJobs = getLiveMaintenance();
+    if (method === 'POST') {
+      const liveCyls = getLiveCylinders();
+      const targetCyl = liveCyls.find((c: any) => c._id === body.cylinderId || c.cylinderId === body.cylinderId) || liveCyls[0];
+      const technician = DEMO_USERS.find((u: any) => u.id === body.technicianId || u._id === body.technicianId) || DEMO_USERS[4];
+
+      const newJob = {
+        _id: `maint-job-${Date.now()}`,
+        maintenanceId: `MNT-2026-${String(liveJobs.length + 1).padStart(3, '0')}`,
+        cylinder: targetCyl,
+        maintenanceType: body.maintenanceType || 'VALVE_REPLACEMENT',
+        description: body.description || 'Maintenance overhaul performed.',
+        technician: {
+          _id: technician._id,
+          name: technician.name,
+          email: technician.email,
+          phone: technician.phone || '+1 (555) 300-0001',
+          role: technician.role,
+        },
+        startDate: new Date().toISOString(),
+        cost: Number(body.cost) || 45,
+        status: 'IN_PROGRESS',
+        notes: body.notes || '',
+        createdAt: new Date().toISOString(),
+      };
+
+      liveJobs.unshift(newJob as any);
+      saveLiveMaintenance(liveJobs);
+
+      // Route cylinder to maintenance
+      targetCyl.status = 'MAINTENANCE';
+      saveLiveCylinders(liveCyls);
+
+      return { success: true, job: newJob };
+    }
+
+    const urlParams = new URLSearchParams(endpoint.includes('?') ? endpoint.split('?')[1] : '');
+    const statusFilter = urlParams.get('status') || 'ALL';
+
+    let filtered = liveJobs;
+    if (statusFilter && statusFilter !== 'ALL') {
+      filtered = filtered.filter((j: any) => j.status === statusFilter);
+    }
+
     return {
       success: true,
-      data: DEMO_MAINTENANCE,
-      pagination: { page: 1, limit: 20, total: DEMO_MAINTENANCE.length, pages: 1 },
+      data: filtered,
+      pagination: { page: 1, limit: 30, total: filtered.length, pages: 1 },
     };
   }
 
+  if (cleanEndpoint.startsWith('/maintenance/') && cleanEndpoint.endsWith('/status')) {
+    const id = cleanEndpoint.split('/')[2];
+    const liveJobs = getLiveMaintenance();
+    const target = liveJobs.find((j: any) => j._id === id || j.maintenanceId === id);
+    if (target) {
+      target.status = body.status || target.status;
+      if (body.cost !== undefined) target.cost = Number(body.cost);
+      if (body.notes) target.notes = body.notes;
+      if (target.status === 'COMPLETED') {
+        target.completionDate = new Date().toISOString();
+
+        // Route cylinder back to inspection
+        const liveCyls = getLiveCylinders();
+        const cyl = liveCyls.find((c: any) => c._id === target.cylinder?._id || c.cylinderId === target.cylinder?.cylinderId);
+        if (cyl) {
+          cyl.status = 'INSPECTION';
+          cyl.condition = 'FAIR';
+          saveLiveCylinders(liveCyls);
+        }
+      }
+      saveLiveMaintenance(liveJobs);
+    }
+    return { success: true, job: target || liveJobs[0] };
+  }
+
   if (cleanEndpoint === '/maintenance/stats') {
+    const liveJobs = getLiveMaintenance();
+    const byStatus: Record<string, number> = {};
+    let totalCost = 0;
+    liveJobs.forEach((j: any) => {
+      byStatus[j.status] = (byStatus[j.status] || 0) + 1;
+      totalCost += Number(j.cost) || 0;
+    });
     return {
       success: true,
-      stats: { total: DEMO_MAINTENANCE.length, byStatus: { IN_PROGRESS: 1 }, totalCost: 38 },
+      stats: {
+        total: liveJobs.length,
+        byStatus,
+        totalCost,
+      },
     };
   }
 
   // 10. Inspections
   if (cleanEndpoint === '/inspections') {
+    const liveInsps = getLiveInspections();
+    if (method === 'POST') {
+      const liveCyls = getLiveCylinders();
+      const targetCyl = liveCyls.find((c: any) => c._id === body.cylinderId || c.cylinderId === body.cylinderId) || liveCyls[0];
+      const inspector = DEMO_USERS.find((u: any) => u.id === body.inspectorId || u._id === body.inspectorId) || DEMO_USERS[4];
+
+      const newInspection = {
+        _id: `insp-${Date.now()}`,
+        inspectionId: `INSP-2026-${String(liveInsps.length + 1).padStart(3, '0')}`,
+        cylinder: targetCyl,
+        inspector: {
+          _id: inspector._id,
+          name: inspector.name,
+          role: inspector.role,
+          email: inspector.email,
+        },
+        inspectionDate: body.inspectionDate || new Date().toISOString(),
+        inspectionType: body.inspectionType || 'ROUTINE',
+        leakTest: body.leakTest || 'PASSED',
+        valveCondition: body.valveCondition || 'GOOD',
+        bodyCondition: body.bodyCondition || 'GOOD',
+        corrosion: body.corrosion || 'NONE',
+        pressureTest: body.pressureTest || 'PASSED',
+        safetySeal: body.safetySeal || 'INTACT',
+        overallCondition: body.overallCondition || 'GOOD',
+        result: body.result || 'PASSED',
+        remarks: body.remarks || 'Safety inspection passed.',
+        nextInspectionDate: new Date(Date.now() + 180 * 86400000).toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+
+      liveInsps.unshift(newInspection as any);
+      saveLiveInspections(liveInsps);
+
+      // Sync cylinder state based on inspection result
+      if (body.result === 'NEEDS_MAINTENANCE' || body.result === 'FAILED') {
+        targetCyl.status = 'MAINTENANCE';
+        targetCyl.condition = 'DAMAGED';
+      } else if (body.result === 'REJECTED') {
+        targetCyl.status = 'RETIRED';
+        targetCyl.condition = 'REJECTED';
+      } else if (body.result === 'PASSED' && targetCyl.status === 'INSPECTION') {
+        targetCyl.status = 'AVAILABLE';
+        targetCyl.condition = 'GOOD';
+      }
+      targetCyl.lastInspectionDate = newInspection.inspectionDate;
+      targetCyl.nextInspectionDate = newInspection.nextInspectionDate;
+      saveLiveCylinders(liveCyls);
+
+      return { success: true, inspection: newInspection };
+    }
+
+    const urlParams = new URLSearchParams(endpoint.includes('?') ? endpoint.split('?')[1] : '');
+    const resultFilter = urlParams.get('result') || 'ALL';
+    const typeFilter = urlParams.get('inspectionType') || 'ALL';
+
+    let filtered = liveInsps;
+    if (resultFilter && resultFilter !== 'ALL') {
+      filtered = filtered.filter((i: any) => i.result === resultFilter);
+    }
+    if (typeFilter && typeFilter !== 'ALL') {
+      filtered = filtered.filter((i: any) => i.inspectionType === typeFilter);
+    }
+
     return {
       success: true,
-      data: [
-        {
-          _id: 'insp-1',
-          inspectionId: 'INSP-2026-001',
-          cylinder: DEMO_CYLINDERS[0],
-          inspector: DEMO_USERS[4],
-          inspectionDate: new Date().toISOString(),
-          result: 'PASSED',
-          tareWeight: 14.1,
-          visualInspection: true,
-          pressureTest: true,
-          nextInspectionDate: new Date(Date.now() + 180 * 86400000).toISOString(),
-          notes: 'Standard certification passed with zero leak rate.',
-        },
-      ],
-      pagination: { page: 1, limit: 20, total: 1, pages: 1 },
+      data: filtered,
+      pagination: { page: 1, limit: 30, total: filtered.length, pages: 1 },
+    };
+  }
+
+  if (cleanEndpoint === '/inspections/stats') {
+    const liveInsps = getLiveInspections();
+    const byResult: Record<string, number> = {};
+    liveInsps.forEach((i: any) => {
+      byResult[i.result] = (byResult[i.result] || 0) + 1;
+    });
+    return {
+      success: true,
+      stats: {
+        total: liveInsps.length,
+        byResult,
+      },
     };
   }
 

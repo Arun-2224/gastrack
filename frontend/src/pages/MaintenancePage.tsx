@@ -62,10 +62,15 @@ export const MaintenancePage: React.FC = () => {
     mutationFn: (id: string) =>
       maintenanceApi.updateStatus(id, { status: 'COMPLETED' }),
     onSuccess: (res) => {
-      success('Work Order Completed', `Job ${res.job.maintenanceId} marked complete. Cylinder routed to inspection.`);
+      success('Work Order Completed', `Job ${res.job?.maintenanceId || 'MNT'} marked complete. Cylinder routed to inspection.`);
       queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      queryClient.invalidateQueries({ queryKey: ['inspection-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
     },
     onError: (err: any) => {
       error('Update Error', err.message);

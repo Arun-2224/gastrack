@@ -54,10 +54,15 @@ export const CreateInspectionModal: React.FC<CreateInspectionModalProps> = ({
   const mutation = useMutation({
     mutationFn: (data: any) => inspectionApi.create(data),
     onSuccess: (res) => {
-      success('Inspection Logged', `Result: ${res.inspection.result}. Cylinder updated.`);
+      success('Inspection Logged', `Result: ${res.inspection?.result || 'Recorded'}. Cylinder updated.`);
       queryClient.invalidateQueries({ queryKey: ['inspections'] });
+      queryClient.invalidateQueries({ queryKey: ['inspection-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['maintenance-stats'] });
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
       onClose();
     },
     onError: (err: any) => {
