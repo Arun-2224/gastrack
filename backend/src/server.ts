@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { connectDB, disconnectDB } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { User } from './models/User';
@@ -43,6 +44,36 @@ app.use(cors({
 
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Ensure DB connection for serverless / function invocations
+let isDbConnecting: Promise<typeof mongoose> | null = null;
+app.use(async (_req, _res, next) => {
+  if (mongoose.connection.readyState === 1) {
+    return next();
+  }
+
+  try {
+    if (!isDbConnecting) {
+      isDbConnecting = connectDB().then(async (db) => {
+        try {
+          const userCount = await User.countDocuments();
+          if (userCount === 0) {
+            console.log('[Server] Database is empty. Automatically initializing demo data...');
+            await seed(false);
+          }
+        } catch (seedErr) {
+          console.warn('[Server] Auto-seed check warning:', seedErr);
+        }
+        return db;
+      });
+    }
+    await isDbConnecting;
+    next();
+  } catch (error) {
+    isDbConnecting = null;
+    next(error);
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

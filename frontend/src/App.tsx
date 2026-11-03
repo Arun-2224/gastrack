@@ -53,12 +53,19 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; roles?: string[] }> 
   return <>{children}</>;
 };
 
+const getBasename = () => {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')) {
+    return '/gastrack';
+  }
+  return import.meta.env.BASE_URL || '/';
+};
+
 export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <AuthProvider>
-          <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <BrowserRouter basename={getBasename()}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
 

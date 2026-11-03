@@ -44,8 +44,8 @@ export async function apiRequest<T = any>(
       headers,
     });
 
-    if ((response.status === 405 || response.status === 404) && !RAW_URL) {
-      console.warn(`[GasTrack] Received ${response.status} on static host. Serving from interactive demo data.`);
+    if ((response.status === 405 || response.status === 404 || response.status >= 500) && !RAW_URL) {
+      console.warn(`[GasTrack] Received ${response.status} from backend. Serving from interactive demo data.`);
       return handleMockApi(endpoint, options) as T;
     }
 

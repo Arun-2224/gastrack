@@ -38,6 +38,8 @@ jobs:
           npm ci
 
       - name: Build Frontend
+        env:
+          VITE_BASE_PATH: '/gastrack/'
         run: |
           cd frontend
           npm run build
