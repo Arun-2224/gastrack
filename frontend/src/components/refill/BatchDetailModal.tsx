@@ -34,6 +34,7 @@ export const BatchDetailModal: React.FC<BatchDetailModalProps> = ({
       success('Batch Status Updated', `Batch ${res.batch.batchId} updated to ${res.batch.status}.`);
       queryClient.invalidateQueries({ queryKey: ['refill-batches'] });
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
     },

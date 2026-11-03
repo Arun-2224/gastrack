@@ -491,7 +491,33 @@ export const DEMO_NOTIFICATIONS = [
   },
 ];
 
-// Handles in-browser API mock responses
+// Handles in-browser API mock responses with localStorage persistence
+const CYLINDERS_STORAGE_KEY = 'gastrack_mock_cylinders';
+
+function getLiveCylinders(): typeof DEMO_CYLINDERS {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(CYLINDERS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to parse stored cylinders', e);
+    }
+  }
+  return DEMO_CYLINDERS;
+}
+
+function saveLiveCylinders(cylinders: typeof DEMO_CYLINDERS) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CYLINDERS_STORAGE_KEY, JSON.stringify(cylinders));
+    } catch (e) {
+      console.warn('Failed to persist cylinders', e);
+    }
+  }
+}
+
 export function handleMockApi(endpoint: string, options: RequestInit = {}): any {
   const method = (options.method || 'GET').toUpperCase();
   const cleanEndpoint = endpoint.split('?')[0];
@@ -586,14 +612,15 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
 
   // 5. Cylinders
   if (cleanEndpoint === '/cylinders') {
+    const liveCyls = getLiveCylinders();
     if (method === 'POST') {
       const newCylinder = {
         _id: `cyl-${Date.now()}`,
-        cylinderId: body.cylinderId || `GT-DOM-${Math.floor(100 + Math.random() * 900)}`,
+        cylinderId: body.cylinderId || `CYL-${String(liveCyls.length + 1).padStart(4, '0')}`,
         serialNumber: body.serialNumber || `SN-${Math.floor(1000000 + Math.random() * 9000000)}`,
         cylinderType: body.cylinderType || 'DOMESTIC_14_2KG',
-        capacity: body.capacity || 14.2,
-        brand: body.brand || 'BharatGas',
+        capacity: Number(body.capacity) || 14.2,
+        brand: body.brand || 'GasTrack SuperGas',
         status: body.status || 'AVAILABLE',
         condition: body.condition || 'GOOD',
         currentLocation: { _id: 'loc-1', name: 'Main Central Warehouse', type: 'MAIN_WAREHOUSE' },
@@ -602,36 +629,62 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      DEMO_CYLINDERS.unshift(newCylinder as any);
+      liveCyls.unshift(newCylinder as any);
+      saveLiveCylinders(liveCyls);
       return { success: true, cylinder: newCylinder };
     }
+
+    const urlParams = new URLSearchParams(endpoint.includes('?') ? endpoint.split('?')[1] : '');
+    const search = (urlParams.get('search') || '').toLowerCase().trim();
+    const statusFilter = urlParams.get('status') || 'ALL';
+    const conditionFilter = urlParams.get('condition') || 'ALL';
+    const typeFilter = urlParams.get('cylinderType') || 'ALL';
+
+    let filtered = liveCyls;
+    if (search) {
+      filtered = filtered.filter(
+        (c) =>
+          c.serialNumber?.toLowerCase().includes(search) ||
+          c.cylinderId?.toLowerCase().includes(search) ||
+          c.brand?.toLowerCase().includes(search)
+      );
+    }
+    if (statusFilter && statusFilter !== 'ALL') {
+      filtered = filtered.filter((c) => c.status === statusFilter);
+    }
+    if (conditionFilter && conditionFilter !== 'ALL') {
+      filtered = filtered.filter((c) => c.condition === conditionFilter);
+    }
+    if (typeFilter && typeFilter !== 'ALL') {
+      filtered = filtered.filter((c) => c.cylinderType === typeFilter);
+    }
+
     return {
       success: true,
-      data: DEMO_CYLINDERS,
-      pagination: { page: 1, limit: 20, total: DEMO_CYLINDERS.length, pages: 1 },
+      data: filtered,
+      pagination: { page: 1, limit: 50, total: filtered.length, pages: 1 },
     };
   }
 
   if (cleanEndpoint === '/cylinders/stats') {
+    const liveCyls = getLiveCylinders();
+    const byStatus: Record<string, number> = {};
+    const byCondition: Record<string, number> = {};
+    const byType: Record<string, number> = {};
+
+    liveCyls.forEach((c) => {
+      byStatus[c.status] = (byStatus[c.status] || 0) + 1;
+      byCondition[c.condition] = (byCondition[c.condition] || 0) + 1;
+      byType[c.cylinderType] = (byType[c.cylinderType] || 0) + 1;
+    });
+
     return {
       success: true,
       stats: {
-        total: DEMO_CYLINDERS.length,
-        byStatus: {
-          AVAILABLE: 1,
-          DELIVERED: 1,
-          IN_REFILL: 1,
-          EMPTY: 1,
-          MAINTENANCE: 1,
-          FILLED: 1,
-        },
-        byCondition: { GOOD: 4, FAIR: 1, DAMAGED: 1 },
-        byType: {
-          DOMESTIC_14_2KG: 2,
-          COMMERCIAL_19KG: 2,
-          INDUSTRIAL_47_5KG: 1,
-          CAMPING_5KG: 1,
-        },
+        total: liveCyls.length,
+        byStatus,
+        byCondition,
+        byType,
       },
     };
   }
@@ -639,12 +692,15 @@ export function handleMockApi(endpoint: string, options: RequestInit = {}): any 
   // Cylinder status transition
   if (cleanEndpoint.startsWith('/cylinders/') && cleanEndpoint.endsWith('/status')) {
     const id = cleanEndpoint.split('/')[2];
-    const target = DEMO_CYLINDERS.find((c) => c._id === id || c.cylinderId === id);
+    const liveCyls = getLiveCylinders();
+    const target = liveCyls.find((c) => c._id === id || c.cylinderId === id);
     if (target) {
       target.status = body.status || target.status;
       if (body.condition) target.condition = body.condition;
+      target.updatedAt = new Date().toISOString();
+      saveLiveCylinders(liveCyls);
     }
-    return { success: true, message: 'Status updated successfully', cylinder: target || DEMO_CYLINDERS[0] };
+    return { success: true, message: 'Status updated successfully', cylinder: target || liveCyls[0] };
   }
 
   // 6. Customers

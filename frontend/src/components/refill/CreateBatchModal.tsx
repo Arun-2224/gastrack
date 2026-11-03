@@ -61,6 +61,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({ isOpen, onCl
       success('Batch Dispatched', `Refill batch ${res.batch.batchId} created and sent to plant.`);
       queryClient.invalidateQueries({ queryKey: ['refill-batches'] });
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
       setSelectedCylinders([]);

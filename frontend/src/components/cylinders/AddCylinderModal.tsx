@@ -33,8 +33,9 @@ export const AddCylinderModal: React.FC<AddCylinderModalProps> = ({ isOpen, onCl
   const mutation = useMutation({
     mutationFn: (data: any) => cylinderApi.create(data),
     onSuccess: (res) => {
-      success('Cylinder Registered', `Serial: ${res.cylinder.serialNumber} added to inventory.`);
+      success('Cylinder Registered', `Serial: ${res.cylinder?.serialNumber || serialNumber} added to inventory.`);
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
       setSerialNumber('');

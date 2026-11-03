@@ -76,28 +76,35 @@ app.use(async (_req, _res, next) => {
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
+const healthHandler = (_req: express.Request, res: express.Response) => {
   res.status(200).json({
     status: 'OK',
     service: 'GasTrack API',
     database: 'MongoDB (Mongoose)',
     timestamp: new Date(),
   });
-});
+};
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/cylinders', cylinderRoutes);
-app.use('/api/customers', customerRoutes);
-app.use('/api/deliveries', deliveryRoutes);
-app.use('/api/refill', refillRoutes);
-app.use('/api/inspections', inspectionRoutes);
-app.use('/api/maintenance', maintenanceRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/audit-logs', auditRoutes);
-app.use('/api/locations', locationRoutes);
+const registerRoutes = (prefix: string) => {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/cylinders`, cylinderRoutes);
+  app.use(`${prefix}/customers`, customerRoutes);
+  app.use(`${prefix}/deliveries`, deliveryRoutes);
+  app.use(`${prefix}/refill`, refillRoutes);
+  app.use(`${prefix}/inspections`, inspectionRoutes);
+  app.use(`${prefix}/maintenance`, maintenanceRoutes);
+  app.use(`${prefix}/payments`, paymentRoutes);
+  app.use(`${prefix}/dashboard`, dashboardRoutes);
+  app.use(`${prefix}/notifications`, notificationRoutes);
+  app.use(`${prefix}/audit-logs`, auditRoutes);
+  app.use(`${prefix}/locations`, locationRoutes);
+};
+
+registerRoutes('/api');
+registerRoutes('');
 
 // Centralized error handler
 app.use(errorHandler);

@@ -36,8 +36,9 @@ export const TransitionStatusModal: React.FC<TransitionStatusModalProps> = ({
     mutationFn: (data: { status: string; condition: string; notes: string }) =>
       cylinderApi.transitionStatus(cylinder!._id, data),
     onSuccess: (res) => {
-      success('Status Updated', res.message);
+      success('Status Updated', res.message || 'Cylinder status updated.');
       queryClient.invalidateQueries({ queryKey: ['cylinders'] });
+      queryClient.invalidateQueries({ queryKey: ['cylinder-stats'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       onClose();
     },

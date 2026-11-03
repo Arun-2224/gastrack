@@ -48,3 +48,5 @@ a.out
 *.c
 *.cpp
 
+.vercel
+.env*
